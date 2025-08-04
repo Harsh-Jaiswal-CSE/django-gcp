@@ -15,7 +15,7 @@ spec:
       containers:
         # Main Django Web App
         - name: web
-          image: gcr.io/django-helloworld-gcp/helloworld:latest
+          image: image: gcr.io/${PROJECT_ID}/helloworld:${GITHUB_SHA}
           ports:
             - containerPort: 8000
           env:
