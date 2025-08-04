@@ -1,20 +1,31 @@
 name: Deploy to GKE
 on: [push]
+
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
+
       - name: Build and Push Docker image
         run: |
           gcloud builds submit --tag gcr.io/$PROJECT_ID/helloworld:$GITHUB_SHA
+
+      - name: Substitute image tag in Kubernetes manifest
+        run: |
+          export PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+          export GITHUB_SHA=${{ github.sha }}
+          envsubst < k8s/deployment.yaml > k8s/deployment-subst.yaml
+
       - name: Deploy to GKE
         run: |
-          kubectl apply -f k8s/
+          kubectl apply -f k8s/deployment-subst.yaml
