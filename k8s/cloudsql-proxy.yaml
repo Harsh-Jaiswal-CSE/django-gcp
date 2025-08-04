@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloworld
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: web
+        image: gcr.io/django-helloworld-gcp/helloworld:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: USE_CLOUD_SQL
+          value: "1"
+        - name: DB_NAME
+          value: "main_db"
+        - name: DB_USER
+          value: "django_user"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: password
+        - name: DB_HOST
+          value: "127.0.0.1"
+        - name: DB_PORT
+          value: "5432"
+        - name: GS_BUCKET_NAME
+          value: "django-helloworld-bucket"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: django-secret-key
+              key: secret-key
+        - name: DEBUG
+          value: "False"
+        - name: ALLOWED_HOSTS
+          value: "*"
+        volumeMounts:
+        - name: gcp-credentials
+          mountPath: /app/gcp_credentials.json
+          subPath: gcp_credentials.json
+
+      - name: cloudsql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.34.0
+        command:
+          [
+            "/cloud_sql_proxy",
+            "-instances=django-helloworld-gcp:us-central1:helloworld-db=tcp:5432",
+            "-credential_file=/secrets/cloudsql/credentials.json"
+          ]
+        volumeMounts:
+        - name: cloudsql-instance-credentials
+          mountPath: /secrets/cloudsql
+        securityContext:
+          runAsNonRoot: true
+
+      volumes:
+      - name: cloudsql-instance-credentials
+        secret:
+          secretName: cloud-sql-instance-credentials
+      - name: gcp-credentials
+        secret:
+          secretName: gcp-creds
